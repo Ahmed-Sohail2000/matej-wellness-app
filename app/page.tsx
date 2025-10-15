@@ -9,12 +9,18 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [charts, setCharts] = useState<Chart[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
 
   function triggerFilePicker() {
     fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    setSelectedFileName(f ? f.name : '');
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,7 +31,7 @@ export default function Page() {
     setCharts([]);
 
     if (!webhookUrl) {
-      setError('Missing webhook URL');
+      setError('Missing NEXT_PUBLIC_N8N_WEBHOOK_URL');
       setLoading(false);
       return;
     }
@@ -39,24 +45,22 @@ export default function Page() {
         body: formData,
       });
 
+      const contentType = res.headers.get('content-type') || '';
+
       if (!res.ok) {
-        // Read body for diagnostics
         const txt = await res.text();
         throw new Error(`HTTP ${res.status}: ${txt || 'No response body'}`);
       }
 
-      const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
         const data = await res.json();
         setMessage(data?.message ?? 'Success');
         setCharts(Array.isArray(data?.charts) ? data.charts : []);
       } else {
         const text = await res.text();
-        // If your n8n returns HTML or plain text, you can optionally render it
         setMessage(text || 'Submitted successfully (non-JSON response)');
       }
     } catch (err: any) {
-      // Better visibility for "Failed to fetch"
       setError(err?.message || 'Failed to fetch (network/CORS/URL issue)');
     } finally {
       setLoading(false);
@@ -120,15 +124,17 @@ export default function Page() {
               />
             </label>
 
-            {/* Hidden file input + visible button */}
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               name="file"
               type="file"
               accept=".csv,.xlsx,.json"
+              onChange={handleFileChange}
               style={{ display: 'none' }}
             />
 
+            {/* Visible button to pick a file */}
             <div>
               <button
                 type="button"
@@ -147,7 +153,7 @@ export default function Page() {
                 Choose File
               </button>
               <span style={{ color: '#ccc', fontSize: 14 }}>
-                {fileInputRef.current?.files?.[0]?.name || 'No file selected'}
+                {selectedFileName || 'No file selected'}
               </span>
             </div>
 
