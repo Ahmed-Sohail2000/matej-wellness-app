@@ -1,103 +1,124 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+
+type Chart = { url: string; title?: string };
+
+export default function Page() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [charts, setCharts] = useState<Chart[]>([]);
+
+  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    setCharts([]);
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch(webhookUrl as string, {
+        method: 'POST',
+        body: formData, // multipart/form-data automatically set
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Request failed (${res.status}): ${text}`);
+      }
+
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        setMessage(data?.message ?? 'Success');
+        setCharts(Array.isArray(data?.charts) ? data.charts : []);
+      } else if (contentType.includes('text/html')) {
+        const html = await res.text();
+        // If your n8n Respond to Webhook returns HTML (optional):
+        setMessage('Received HTML response');
+        // You can render dangerouslySetInnerHTML if desired
+      } else {
+        const text = await res.text();
+        setMessage(text || 'Submitted successfully');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main style={{ maxWidth: 800, margin: '40px auto', padding: '0 20px' }}>
+      <h1>Upload & Generate Charts</h1>
+      <p>Submit your details and a data file. We’ll generate charts via n8n + QuickChart.</p>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {!webhookUrl && (
+        <div style={{ padding: 12, background: '#ffe9e9', border: '1px solid #ffb3b3', marginBottom: 16 }}>
+          Missing NEXT_PUBLIC_N8N_WEBHOOK_URL. Add it in Vercel Project Settings → Environment Variables.
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+
+      <form onSubmit={handleSubmit} encType="multipart/form-data">
+        <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+          <label>
+            Name
+            <input name="name" placeholder="Your name" />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" placeholder="you@example.com" />
+          </label>
+          <label>
+            Data File
+            <input name="file" type="file" accept=".csv,.xlsx,.json" />
+          </label>
+          <label>
+            Notes (optional)
+            <textarea name="notes" placeholder="Anything we should know?" rows={3} />
+          </label>
+        </div>
+
+        <button type="submit" disabled={loading || !webhookUrl}>
+          {loading ? 'Submitting…' : 'Submit'}
+        </button>
+      </form>
+
+      {error && (
+        <div style={{ marginTop: 16, color: '#b00020' }}>
+          Error: {error}
+        </div>
+      )}
+
+      {message && (
+        <div style={{ marginTop: 16 }}>
+          {message}
+        </div>
+      )}
+
+      {charts?.length > 0 && (
+        <section style={{ marginTop: 24 }}>
+          <h2>Charts</h2>
+          <div style={{ display: 'grid', gap: 16 }}>
+            {charts.map((c, i) => (
+              <figure key={i} style={{ margin: 0 }}>
+                <img src={c.url} alt={c.title || `Chart ${i + 1}`} style={{ maxWidth: '100%', height: 'auto' }} />
+                {(c.title || c.url) && (
+                  <figcaption style={{ fontSize: 14, color: '#666' }}>
+                    {c.title || c.url}
+                  </figcaption>
+                )}
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
   );
 }
