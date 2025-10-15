@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 type Chart = { url: string; title?: string };
 
@@ -9,8 +9,13 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [charts, setCharts] = useState<Chart[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+
+  function triggerFilePicker() {
+    fileInputRef.current?.click();
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -18,6 +23,12 @@ export default function Page() {
     setError(null);
     setMessage(null);
     setCharts([]);
+
+    if (!webhookUrl) {
+      setError('Missing webhook URL');
+      setLoading(false);
+      return;
+    }
 
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -28,26 +39,25 @@ export default function Page() {
         body: formData,
       });
 
-      const contentType = res.headers.get('content-type') || '';
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Request failed (${res.status}): ${text}`);
+        // Read body for diagnostics
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status}: ${txt || 'No response body'}`);
       }
 
+      const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
         const data = await res.json();
         setMessage(data?.message ?? 'Success');
         setCharts(Array.isArray(data?.charts) ? data.charts : []);
-      } else if (contentType.includes('text/html')) {
-        const html = await res.text();
-        setMessage('Received HTML response');
-        // Optionally render HTML: <div dangerouslySetInnerHTML={{ __html: html }} />
       } else {
         const text = await res.text();
-        setMessage(text || 'Submitted successfully');
+        // If your n8n returns HTML or plain text, you can optionally render it
+        setMessage(text || 'Submitted successfully (non-JSON response)');
       }
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong');
+      // Better visibility for "Failed to fetch"
+      setError(err?.message || 'Failed to fetch (network/CORS/URL issue)');
     } finally {
       setLoading(false);
     }
@@ -56,8 +66,8 @@ export default function Page() {
   return (
     <main
       style={{
-        background: '#ffffff',      // white page background
-        color: '#000000',           // black default text
+        background: '#ffffff',
+        color: '#000000',
         minHeight: '100vh',
         padding: '40px 20px',
       }}
@@ -65,7 +75,7 @@ export default function Page() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <h1 style={{ marginBottom: 8 }}>Upload & Generate Charts</h1>
         <p style={{ marginBottom: 24 }}>
-          Submit your details and a data file. We’ll generate charts via n8n + QuickChart.
+          Upload a file and we’ll generate charts via n8n + QuickChart.
         </p>
 
         {!webhookUrl && (
@@ -78,17 +88,16 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Missing NEXT_PUBLIC_N8N_WEBHOOK_URL. Add it in Vercel Project Settings → Environment Variables.
+            Missing NEXT_PUBLIC_N8N_WEBHOOK_URL. Set it in Vercel → Settings → Environment Variables, then redeploy.
           </div>
         )}
 
-        {/* Black form card */}
         <form
           onSubmit={handleSubmit}
           encType="multipart/form-data"
           style={{
             background: '#000000',
-            color: '#ffffff', // white text inside the dark form
+            color: '#ffffff',
             borderRadius: 12,
             padding: 20,
             boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
@@ -111,24 +120,36 @@ export default function Page() {
               />
             </label>
 
-            {/* Email removed as requested */}
+            {/* Hidden file input + visible button */}
+            <input
+              ref={fileInputRef}
+              name="file"
+              type="file"
+              accept=".csv,.xlsx,.json"
+              style={{ display: 'none' }}
+            />
 
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span>Data File</span>
-              <input
-                name="file"
-                type="file"
-                accept=".csv,.xlsx,.json"
+            <div>
+              <button
+                type="button"
+                onClick={triggerFilePicker}
                 style={{
-                  background: '#111',
-                  color: '#fff',
-                  border: '1px solid #333',
+                  background: '#ffffff',
+                  color: '#000000',
+                  border: '1px solid #000',
                   borderRadius: 8,
-                  padding: '8px',
-                  outline: 'none',
+                  padding: '10px 16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginRight: 12,
                 }}
-              />
-            </label>
+              >
+                Choose File
+              </button>
+              <span style={{ color: '#ccc', fontSize: 14 }}>
+                {fileInputRef.current?.files?.[0]?.name || 'No file selected'}
+              </span>
+            </div>
 
             <label style={{ display: 'grid', gap: 6 }}>
               <span>Notes (optional)</span>
@@ -152,8 +173,8 @@ export default function Page() {
             type="submit"
             disabled={loading || !webhookUrl}
             style={{
-              background: '#ffffff',  // white button for contrast
-              color: '#000000',       // black text on button
+              background: '#ffffff',
+              color: '#000000',
               border: '1px solid #000',
               borderRadius: 8,
               padding: '10px 16px',
@@ -173,7 +194,7 @@ export default function Page() {
         )}
 
         {message && (
-          <div style={{ marginTop: 16, color: '#000' /* black text outside form */ }}>
+          <div style={{ marginTop: 16, color: '#000' }}>
             {message}
           </div>
         )}
@@ -187,7 +208,13 @@ export default function Page() {
                   <img
                     src={c.url}
                     alt={c.title || `Chart ${i + 1}`}
-                    style={{ maxWidth: '100%', height: 'auto', borderRadius: 8, border: '1px solid #eee' }}
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      borderRadius: 8,
+                      border: '1px solid #eee',
+                      background: '#fff',
+                    }}
                   />
                   {(c.title || c.url) && (
                     <figcaption style={{ fontSize: 14, color: '#555' }}>
