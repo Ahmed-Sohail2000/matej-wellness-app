@@ -57,15 +57,24 @@ export default function Page() {
       if (contentType.includes('application/json')) {
         const data = await res.json();
         setMessage(data?.message ?? 'Success');
+
         const list = Array.isArray(data?.charts) ? data.charts : [];
         setCharts(list);
 
-        // Navigate to /view with up to two chart URLs in the query
-        const url1 = list?.[0]?.url || '';
-        const url2 = list?.[1]?.url || '';
+        // Build query with up to two charts including titles
+        const c1 = list?.[0] || {};
+        const c2 = list?.[1] || {};
         const search = new URLSearchParams();
-        if (url1) search.set('url1', url1);
-        if (url2) search.set('url2', url2);
+        if (c1?.url) {
+          search.set('url1', c1.url);
+          if (c1?.title) search.set('title1', c1.title);
+        }
+        if (c2?.url) {
+          search.set('url2', c2.url);
+          if (c2?.title) search.set('title2', c2.title);
+        }
+
+        // Navigate to /view with query params
         router.push(`/view?${search.toString()}`);
       } else {
         const text = await res.text();
@@ -135,6 +144,7 @@ export default function Page() {
               />
             </label>
 
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               name="file"
@@ -144,6 +154,7 @@ export default function Page() {
               style={{ display: 'none' }}
             />
 
+            {/* Visible button to pick a file */}
             <div>
               <button
                 type="button"
