@@ -11,8 +11,6 @@ export default function Page() {
   const [message, setMessage] = useState<string | null>(null);
   const [charts, setCharts] = useState<Chart[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
-  const [chartUrl1, setChartUrl1] = useState('');
-  const [chartUrl2, setChartUrl2] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
@@ -59,7 +57,18 @@ export default function Page() {
       if (contentType.includes('application/json')) {
         const data = await res.json();
         setMessage(data?.message ?? 'Success');
-        setCharts(Array.isArray(data?.charts) ? data.charts : []);
+        const list = Array.isArray(data?.charts) ? data.charts : [];
+
+        // Navigate to /view with up to two URLs
+        const url1 = list?.[0]?.url || '';
+        const url2 = list?.[1]?.url || '';
+        const search = new URLSearchParams();
+        if (url1) search.set('url1', url1);
+        if (url2) search.set('url2', url2);
+        router.push(`/view?${search.toString()}`);
+
+        // Optionally store in state for staying on current page
+        setCharts(list);
       } else {
         const text = await res.text();
         setMessage(text || 'Submitted successfully (non-JSON response)');
@@ -71,235 +80,8 @@ export default function Page() {
     }
   }
 
-  function goToViewPage() {
-    if (!chartUrl1 && !chartUrl2) return;
-    const search = new URLSearchParams();
-    if (chartUrl1) search.set('url1', chartUrl1);
-    if (chartUrl2) search.set('url2', chartUrl2);
-    router.push(`/view?${search.toString()}`);
-  }
-
   return (
-    <main
-      style={{
-        background: '#ffffff',
-        color: '#000000',
-        minHeight: '100vh',
-        padding: '40px 20px',
-      }}
-    >
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
-        <h1 style={{ marginBottom: 8 }}>Upload & Generate Charts</h1>
-        <p style={{ marginBottom: 24 }}>
-          Upload a file and we’ll generate charts via n8n + QuickChart,
-          or paste chart URLs to preview them.
-        </p>
-
-        {/* Paste two chart URLs */}
-        <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span>Chart URL 1</span>
-            <input
-              value={chartUrl1}
-              onChange={(e) => setChartUrl1(e.target.value)}
-              placeholder="https://quickchart.io/chart/render/zf-09ded876-3792-4d17-8bfa-8f8033855a8a"
-              style={{
-                background: '#fff',
-                color: '#000',
-                border: '1px solid #ccc',
-                borderRadius: 8,
-                padding: '10px 12px',
-                outline: 'none',
-              }}
-            />
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span>Chart URL 2</span>
-            <input
-              value={chartUrl2}
-              onChange={(e) => setChartUrl2(e.target.value)}
-              placeholder="https://quickchart.io/chart/render/zf-41309cbe-edee-452f-8c39-8db0d93a461c"
-              style={{
-                background: '#fff',
-                color: '#000',
-                border: '1px solid #ccc',
-                borderRadius: 8,
-                padding: '10px 12px',
-                outline: 'none',
-              }}
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={goToViewPage}
-            style={{
-              background: '#ffffff',
-              color: '#000000',
-              border: '1px solid #000',
-              borderRadius: 8,
-              padding: '10px 16px',
-              fontWeight: 600,
-              cursor: chartUrl1 || chartUrl2 ? 'pointer' : 'not-allowed',
-              opacity: chartUrl1 || chartUrl2 ? 1 : 0.6,
-              width: 'fit-content',
-            }}
-          >
-            View charts
-          </button>
-        </div>
-
-        {!webhookUrl && (
-          <div
-            style={{
-              padding: 12,
-              background: '#ffe9e9',
-              border: '1px solid #ffb3b3',
-              color: '#000',
-              marginBottom: 16,
-            }}
-          >
-            Missing NEXT_PUBLIC_N8N_WEBHOOK_URL. Set it in Vercel → Settings → Environment Variables, then redeploy.
-          </div>
-        )}
-
-        <form
-          onSubmit={handleSubmit}
-          encType="multipart/form-data"
-          style={{
-            background: '#000000',
-            color: '#ffffff',
-            borderRadius: 12,
-            padding: 20,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-          }}
-        >
-          <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span>Name</span>
-              <input
-                name="name"
-                placeholder="Your name"
-                style={{
-                  background: '#111',
-                  color: '#fff',
-                  border: '1px solid #333',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  outline: 'none',
-                }}
-              />
-            </label>
-
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              name="file"
-              type="file"
-              accept=".csv,.xlsx,.json"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-
-            {/* Visible button to pick a file */}
-            <div>
-              <button
-                type="button"
-                onClick={triggerFilePicker}
-                style={{
-                  background: '#ffffff',
-                  color: '#000000',
-                  border: '1px solid #000',
-                  borderRadius: 8,
-                  padding: '10px 16px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginRight: 12,
-                }}
-              >
-                Choose File
-              </button>
-              <span style={{ color: '#ccc', fontSize: 14 }}>
-                {selectedFileName || 'No file selected'}
-              </span>
-            </div>
-
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span>Notes (optional)</span>
-              <textarea
-                name="notes"
-                placeholder="Anything we should know?"
-                rows={3}
-                style={{
-                  background: '#111',
-                  color: '#fff',
-                  border: '1px solid #333',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  outline: 'none',
-                }}
-              />
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !webhookUrl}
-            style={{
-              background: '#ffffff',
-              color: '#000000',
-              border: '1px solid #000',
-              borderRadius: 8,
-              padding: '10px 16px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              fontWeight: 600,
-            }}
-          >
-            {loading ? 'Submitting…' : 'Submit'}
-          </button>
-        </form>
-
-        {error && (
-          <div style={{ marginTop: 16, color: '#b00020' }}>
-            Error: {error}
-          </div>
-        )}
-
-        {message && (
-          <div style={{ marginTop: 16, color: '#000' }}>
-            {message}
-          </div>
-        )}
-
-        {charts?.length > 0 && (
-          <section style={{ marginTop: 24 }}>
-            <h2 style={{ color: '#000' }}>Charts</h2>
-            <div style={{ display: 'grid', gap: 16 }}>
-              {charts.map((c, i) => (
-                <figure key={i} style={{ margin: 0 }}>
-                  <img
-                    src={c.url}
-                    alt={c.title || `Chart ${i + 1}`}
-                    style={{
-                      maxWidth: '100%',
-                      height: 'auto',
-                      borderRadius: 8,
-                      border: '1px solid #eee',
-                      background: '#fff',
-                    }}
-                  />
-                  {(c.title || c.url) && (
-                    <figcaption style={{ fontSize: 14, color: '#555' }}>
-                      {c.title || c.url}
-                    </figcaption>
-                  )}
-                </figure>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </main>
+    /* ... keep your existing JSX as-is ... */
+    // No other structural changes required
   );
 }
