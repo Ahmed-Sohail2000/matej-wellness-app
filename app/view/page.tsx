@@ -2,7 +2,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import ChartsView from './ChartsView';
+import ChartsView from 'app/view/ChartsView.tsx';
 
 export default function ViewPage() {
   return (
