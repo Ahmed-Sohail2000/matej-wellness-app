@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Chart = { url: string; title?: string };
 
@@ -10,9 +11,12 @@ export default function Page() {
   const [message, setMessage] = useState<string | null>(null);
   const [charts, setCharts] = useState<Chart[]>([]);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
+  const [chartUrl1, setChartUrl1] = useState('');
+  const [chartUrl2, setChartUrl2] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  const router = useRouter();
 
   function triggerFilePicker() {
     fileInputRef.current?.click();
@@ -67,6 +71,14 @@ export default function Page() {
     }
   }
 
+  function goToViewPage() {
+    if (!chartUrl1 && !chartUrl2) return;
+    const search = new URLSearchParams();
+    if (chartUrl1) search.set('url1', chartUrl1);
+    if (chartUrl2) search.set('url2', chartUrl2);
+    router.push(`/view?${search.toString()}`);
+  }
+
   return (
     <main
       style={{
@@ -79,8 +91,63 @@ export default function Page() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <h1 style={{ marginBottom: 8 }}>Upload & Generate Charts</h1>
         <p style={{ marginBottom: 24 }}>
-          Upload a file and we’ll generate charts via n8n + QuickChart.
+          Upload a file and we’ll generate charts via n8n + QuickChart,
+          or paste chart URLs to preview them.
         </p>
+
+        {/* Paste two chart URLs */}
+        <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span>Chart URL 1</span>
+            <input
+              value={chartUrl1}
+              onChange={(e) => setChartUrl1(e.target.value)}
+              placeholder="https://quickchart.io/chart/render/zf-09ded876-3792-4d17-8bfa-8f8033855a8a"
+              style={{
+                background: '#fff',
+                color: '#000',
+                border: '1px solid #ccc',
+                borderRadius: 8,
+                padding: '10px 12px',
+                outline: 'none',
+              }}
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span>Chart URL 2</span>
+            <input
+              value={chartUrl2}
+              onChange={(e) => setChartUrl2(e.target.value)}
+              placeholder="https://quickchart.io/chart/render/zf-41309cbe-edee-452f-8c39-8db0d93a461c"
+              style={{
+                background: '#fff',
+                color: '#000',
+                border: '1px solid #ccc',
+                borderRadius: 8,
+                padding: '10px 12px',
+                outline: 'none',
+              }}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={goToViewPage}
+            style={{
+              background: '#ffffff',
+              color: '#000000',
+              border: '1px solid #000',
+              borderRadius: 8,
+              padding: '10px 16px',
+              fontWeight: 600,
+              cursor: chartUrl1 || chartUrl2 ? 'pointer' : 'not-allowed',
+              opacity: chartUrl1 || chartUrl2 ? 1 : 0.6,
+              width: 'fit-content',
+            }}
+          >
+            View charts
+          </button>
+        </div>
 
         {!webhookUrl && (
           <div
